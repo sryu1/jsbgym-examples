@@ -7,7 +7,7 @@ from stable_baselines3 import PPO
 # Defining the objective function
 def objective(trial):
   # Creating the environment
-  env = gym.make("JSBSim-HeadingControlTask-PA28-Shaping.STANDARD-v0", render_mode="flightgear")
+  env = gym.make("PA28-HeadingControlTask-Shaping.STANDARD-NoFG-v0", render_mode="flightgear")
   # Sampling the hyperparameters
   learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2)
   clip_range = trial.suggest_float("clip_range", 0.1, 0.3)
