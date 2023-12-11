@@ -8,13 +8,15 @@ import json
 # Defining the objective function
 def objective(trial):
     # Creating the environment
-    env = gym.make("PA28-HeadingControlTask-Shaping.STANDARD-NoFG-v0")
+    env = gym.make("J3-HeadingControlTask-Shaping.STANDARD-NoFG-v0")
     # Sampling the hyperparameters
-    learning_rate = trial.suggest_float("learning_rate", 5e-6, 3e-3)
+    gamma = trial.suggest_float("gamma", 0.9, 0.9999, log=True)
     clip_range = trial.suggest_categorical("clip_range", [0.1, 0.2, 0.3])
-    ent_coef = trial.suggest_float("ent_coef", 0.0, 0.01)
-    batch_size = trial.suggest_categorical("batch_size", [512, 1024, 2048])
     n_epochs = trial.suggest_int("n_epochs", 3, 30)
+    batch_size = trial.suggest_categorical("batch_size", [512, 1024, 2048])
+    learning_rate = trial.suggest_float("lr", 1e-5, 0.5, log=True)
+    ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1, log=True)
+
     # Creating the agent with tensorboard functionality
     model = PPO(
         "MlpPolicy",
@@ -22,21 +24,27 @@ def objective(trial):
         learning_rate=learning_rate,
         clip_range=clip_range,
         ent_coef=ent_coef,
+        gamma=gamma,
         batch_size=batch_size,
         n_epochs=n_epochs,
-        tensorboard_log="./Optuna_Tensorboard/",
+        tensorboard_log="./OTB/",
     )
     # Training the agent
-    model.learn(3500000)  # or any other number of timesteps
+    try:
+        model.learn(10000000)  # or any other number of timesteps
+        model.save(f"./Models/{trial.number}")
+    except (AssertionError, ValueError) as e:
+        print(e)
+        raise optuna.exceptions.TrialPruned()
     # Evaluating the agent
-    rewards = []
+    rewards = 0
     obs, info = env.reset(seed=42)
     terminated = False
     while not terminated:
         action, _ = model.predict(obs)
         obs, reward, terminated, truncated, info = env.step(action)
-        rewards.append(reward)
-    return sum(rewards)
+        rewards += reward
+    return rewards
 
 
 # Creating a dictionary to store the trial data
@@ -50,7 +58,7 @@ study = optuna.create_study(
     pruner=optuna.pruners.MedianPruner(),
 )  # or "minimize"
 # Running the optimization
-study.optimize(objective, n_trials=50)  # or any other number of trials
+study.optimize(objective, n_trials=100)  # or any other number of trials
 
 # Looping through the trials and adding them to the dictionary
 for trial in study.trials:
